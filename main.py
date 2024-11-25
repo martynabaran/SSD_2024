@@ -221,8 +221,8 @@ if __name__ == "__main__":
 	CLOCK = pygame.time.Clock()
 	SCREEN.fill(BLACK)
 
-	fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Format wideo (AVI)
-	out = cv2.VideoWriter('simulationRelatives2.avi', fourcc, FPS, (WIDTH, HEIGHT+40))
+	# fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Format wideo (AVI)
+	# out = cv2.VideoWriter('simulationRelatives2.avi', fourcc, FPS, (WIDTH, HEIGHT+40))
 
 
 	# Create agents
@@ -308,15 +308,15 @@ if __name__ == "__main__":
 			all_agents.update(all_agents)
 			draw()
 
-			frame = pygame.surfarray.array3d(SCREEN)  # Pobranie obrazu jako tablicy
-			frame = np.rot90(frame)  # Obrót obrazu
-			frame = np.flip(frame, axis=1)  # Lustrzane odbicie
-			out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Zapis klatki do wideo
+			# frame = pygame.surfarray.array3d(SCREEN)  # Pobranie obrazu jako tablicy
+			# frame = np.rot90(frame)  # Obrót obrazu
+			# frame = np.flip(frame, axis=1)  # Lustrzane odbicie
+			# out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Zapis klatki do wideo
 
     		
 		i+=1
 
 	pygame.mixer.pause()
 	time.sleep(2)
-	out.release()
+	# out.release()
 	pygame.quit()

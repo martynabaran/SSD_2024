@@ -29,7 +29,11 @@ def validPropagation(layout, i, j):
 
 def getLayout(file):
     #f = open('supermarket.txt', 'r').read()
-	if(file is None): f = open('C:\\Users\\Martyna\\Desktop\\sem5\\symulacje\\evac-AASMA\\room_layout.txt', 'r').read()
+
+	#Provide the path
+
+	path = 'room_layouts/room_layout.txt'
+	if(file is None): f = open(path, 'r').read()
 	else: f = open(file, 'r').read()
 	p = []
 	p = [item.split() for item in f.split('\n')[:-1]]

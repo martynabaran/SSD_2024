@@ -177,17 +177,23 @@ class Agent(pygame.sprite.Sprite):
         return [[self.x, self.y]]
 
 
-    def plan_(self, all_agents):
-        if not self.danger:  # Poruszanie losowe, gdy nie ma zagrożenia
+    def plan_(self):
+        if (not self.danger):     #walk randomly
             self.plan = self.moveRandom()
-        elif self.reconsider:
-            # Wybierz strategię
-            if self.strategy == "nearest_exit":
-                self.plan = self.Dijkstra()
-            elif self.strategy == "safest_exit":
-                self.plan = self.move_to_safest_exit(all_agents)
-            elif self.strategy == "least_crowded_exit":
-                self.plan = self.move_to_least_crowded_exit(all_agents)
+        elif (self.reconsider):
+            self.plan = self.Dijkstra()
+
+    # def plan_(self, all_agents):
+    #     if not self.danger:  # Poruszanie losowe, gdy nie ma zagrożenia
+    #         self.plan = self.moveRandom()
+    #     elif self.reconsider:
+    #         # Wybierz strategię
+    #         if self.strategy == "nearest_exit":
+    #             self.plan = self.Dijkstra()
+    #         elif self.strategy == "safest_exit":
+    #             self.plan = self.move_to_safest_exit(all_agents)
+    #         elif self.strategy == "least_crowded_exit":
+    #             self.plan = self.move_to_least_crowded_exit(all_agents)
 
 
 
