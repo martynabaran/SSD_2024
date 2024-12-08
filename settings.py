@@ -1,7 +1,7 @@
 # Settings
 
-WIDTH  = 400
-HEIGHT = 300
+WIDTH  = 800
+HEIGHT = 400
 TILESIZE = 10
 GRIDWIDTH = WIDTH / TILESIZE
 GRIDHEIGHT = HEIGHT / TILESIZE
@@ -36,3 +36,5 @@ VIS_RANGE = 5
 VOL_RANGE = 5
 
 ALARMRANGE = 1
+
+STATUS  = ['nearest_exit', 'safest_exit', 'least_crowded_exit']

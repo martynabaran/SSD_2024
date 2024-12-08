@@ -11,10 +11,10 @@ import math
 
 
 class Agent(pygame.sprite.Sprite):
-    def __init__(self, identifier, layout, exits, health, risk, communicates):
+    def __init__(self, identifier, layout, exits, health, risk, communicates, strategy, color):
         pygame.sprite.Sprite.__init__(self)
         self.image  = pygame.Surface((TILESIZE, TILESIZE))
-        self.image.fill(DARKRED)
+        self.image.fill(color)
         self.rect = self.image.get_rect()
 
 
@@ -31,7 +31,7 @@ class Agent(pygame.sprite.Sprite):
         self.range        = VIS_RANGE
         self.volume       = VOL_RANGE
         self.relatives = []
-        self.strategy = None
+        self.strategy = strategy
 
         self.x = random.randrange(0, len(self.layout))
         self.y = random.randrange(0, len(self.layout[0]))
@@ -99,7 +99,7 @@ class Agent(pygame.sprite.Sprite):
 
     def update(self, all_agents):
         if (not self.dead):
-            if (len(self.plan)>0): #nasty FIXME
+            if self.plan and (len(self.plan)>0): #nasty FIXME
                 self.new_x = (self.plan[0][0])
                 self.new_y = (self.plan[0][1])
                 
@@ -177,23 +177,27 @@ class Agent(pygame.sprite.Sprite):
         return [[self.x, self.y]]
 
 
-    def plan_(self):
-        if (not self.danger):     #walk randomly
-            self.plan = self.moveRandom()
-        elif (self.reconsider):
-            self.plan = self.Dijkstra()
-
-    # def plan_(self, all_agents):
-    #     if not self.danger:  # Poruszanie losowe, gdy nie ma zagrożenia
+    # def plan_(self):
+    #     if (not self.danger):     #walk randomly
     #         self.plan = self.moveRandom()
-    #     elif self.reconsider:
-    #         # Wybierz strategię
-    #         if self.strategy == "nearest_exit":
-    #             self.plan = self.Dijkstra()
-    #         elif self.strategy == "safest_exit":
-    #             self.plan = self.move_to_safest_exit(all_agents)
-    #         elif self.strategy == "least_crowded_exit":
-    #             self.plan = self.move_to_least_crowded_exit(all_agents)
+    #     elif (self.reconsider):
+    #         self.plan = self.Dijkstra()
+
+    def plan_(self, all_agents):
+        if not self.danger:  # Poruszanie losowe, gdy nie ma zagrożenia
+            self.plan = self.moveRandom()
+        elif self.reconsider:
+            # Wybierz strategię
+            if self.strategy == "nearest_exit":
+                self.plan = self.Dijkstra()
+            elif self.strategy == "safest_exit":
+                danger_sources = self.get_danger_sources()  # Musisz zdefiniować tę funkcję
+                self.plan = self.Dijkstra_safest(danger_sources)
+            elif self.strategy == "least_crowded_exit":
+                self.plan = self.move_to_least_crowded_exit(all_agents)
+            else:
+                self.plan = self.Dijkstra()
+        # print(f"strategia: {self.strategy}, plan : {self.plan}")
 
 
 
@@ -223,6 +227,7 @@ class Agent(pygame.sprite.Sprite):
     def calculate_crowdedness(self, exits, agents, radius):
         crowdedness = {}
         for exit in exits:
+            exit = tuple(exit)
             x_exit, y_exit = exit
             crowdedness[exit] = 0
             
@@ -235,23 +240,41 @@ class Agent(pygame.sprite.Sprite):
         return crowdedness
 
     def move_to_least_crowded_exit(self, all_agents):
-        # Oblicz zatłoczenie wyjść
-        radius = 2  # Promień wokół wyjścia, który będzie brany pod uwagę
-        crowdedness = self.calculate_crowdedness(self.exits, all_agents, radius)
-        
-        # Znajdź najmniej zatłoczone wyjście
-        least_crowded_exit = min(crowdedness, key=crowdedness.get)
-        
-        # Wyznacz trasę do najmniej zatłoczonego wyjścia
-        self.plan = self.DijkstraToTarget(least_crowded_exit)
+        # print(type(self.exits))
+        # print(type(self.exits[0]))
+        try:
+            # Oblicz zagęszczenie
+            crowdedness = self.calculate_crowdedness(self.exits, all_agents, radius=5)
+            print(f"zatloczenie: {crowdedness}")
+            if crowdedness:
+            # Znajdź wyjście o najmniejszym zagęszczeniu
+                least_crowded_exit_x, least_crowded_exit_y = min(crowdedness, key=crowdedness.get)
+                print(f"typ least crowded: {least_crowded_exit_x}, {least_crowded_exit_y}")
+            else:
+                # Jeśli brak danych, użyj najbliższego wyjścia
+                print("No data about crowdedness. Falling back to nearest exit.")
+                return self.Dijkstra()
 
+            # Znajdź wyjście o najmniejszym zagęszczeniu
+            # least_crowded_exit = list(min(crowdedness, key=crowdedness.get))
 
+            # Wyznacz ścieżkę do wyjścia
+            path = self.DijkstraToTarget(least_crowded_exit_x,least_crowded_exit_y)
+            print(type(path))
+            if path is None:
+                print("Dijkstra_to_exit returned None.")
+                return self.Dijkstra()
 
-    def DijkstraToTarget(self, target):
+            return path
+        except Exception as e:
+            print(f"Error in move_to_least_crowded_exit: {e}")
+            return []
+
+    def DijkstraToTarget(self, targetX, targetY):
         source = [self.x, self.y]
-        dest = target  # Cel: konkretne wyjście
+        dest = [targetX, targetY]  # Cel: konkretne wyjście
 
-        if source == dest:
+        if source == list(dest):
             return [source]
 
         row = [-1, 0, 0, 1]
@@ -287,7 +310,7 @@ class Agent(pygame.sprite.Sprite):
 
             enqueued[parent] = False
 
-            if list(parent) == dest:
+            if list(parent) == list(dest):
                 break
 
             combined = list(zip(row, col))
@@ -321,8 +344,15 @@ class Agent(pygame.sprite.Sprite):
                         heapq.heappush(queue, [alternative, x, y])
                         enqueued[(x, y)] = True
 
+
+        panic = True
+        if visited[dest[0]][dest[1]]:
+            panic = False
+        
+        if panic:
+            return self.panic()
         path = []
-        at = dest
+        at = list(dest)
         while at != source:
             path.append(at)
             at = parents[tuple(at)]
@@ -494,10 +524,16 @@ class Agent(pygame.sprite.Sprite):
                     if isSmoke(self.layout, x, y):
                         weight += 1 - self.risk
 
-                    # Add safety factor
-                    safety_factor = min(
-                        [math.sqrt((x - sx) ** 2 + (y - sy) ** 2) for sx, sy in danger_sources]
-                    )
+                    # # Add safety factor
+                    # safety_factor = min(
+                    #     [math.sqrt((x - sx) ** 2 + (y - sy) ** 2) for sx, sy in danger_sources]
+                    # )
+                    if danger_sources:
+                        safety_factor = min(
+                            [math.sqrt((x - sx) ** 2 + (y - sy) ** 2) for sx, sy in danger_sources]
+                        )
+                    else:
+                        safety_factor = float('inf')
                     weight += 1 / max(safety_factor, 0.1)  # Avoid division by zero
 
                     alternative = distance[parent] + weight
@@ -508,9 +544,16 @@ class Agent(pygame.sprite.Sprite):
                         heapq.heappush(queue, [alternative, x, y])
                         enqueued[(x, y)] = True
 
-        if not my_dest:
-            return self.panic()
+        # if not my_dest:
+        #     return self.panic()
+        panic = True
+        for dest in dests:
+            if visited[dest[0]][dest[1]]:
+                panic = False
 
+        if panic:
+            return self.panic()
+        
         path = []
         at = my_dest
         while at != source:
@@ -520,6 +563,15 @@ class Agent(pygame.sprite.Sprite):
         path.reverse()
         return path
 
+    def get_danger_sources(self):
+        danger_sources = []
+        for i in range(len(self.layout)):
+            for j in range(len(self.layout[0])):
+                if isFire(self.layout, i, j) or isSmoke(self.layout, i, j):  # Definiowanie zagrożenia
+                    danger_sources.append((i, j))
+        if not danger_sources:
+            print("Nie znaleziono zagrożeń w layout!")
+        return danger_sources
 
     def heuristic(self, node, dests):
         return min(abs(node[0] - d[0]) + abs(node[1] - d[1]) for d in dests)

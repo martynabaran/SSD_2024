@@ -199,15 +199,15 @@ def communicate(speaker):
 		if (speaker.getID() == listener.getID()): continue
 		if assertInRange(speaker, listener):
 			listener.receiveMessage(speaker.getLayout())
-		if listener.getID() in speaker.relatives:
-			print(f"PRZED: speaker danger = {speaker.getDangerState()} listener danger = {listener.getDangerState()}")
+		# if listener.getID() in speaker.relatives:
+		# 	print(f"PRZED: speaker danger = {speaker.getDangerState()} listener danger = {listener.getDangerState()}")
 			
-			if speaker.getDangerState() or listener.getDangerState():				
-				speaker.danger = listener.danger = True
+		# 	if speaker.getDangerState() or listener.getDangerState():				
+		# 		speaker.danger = listener.danger = True
 
-			print(f"speaker {speaker.getID()} informuje b {listener.getID()}")
-			listener.receiveMessagefromRelative(speaker.getLayout())
-			print(f"speaker danger = {speaker.getDangerState()} listener danger = {listener.getDangerState()}")
+		# 	print(f"speaker {speaker.getID()} informuje b {listener.getID()}")
+		# 	listener.receiveMessagefromRelative(speaker.getLayout())
+		# 	print(f"speaker danger = {speaker.getDangerState()} listener danger = {listener.getDangerState()}")
 import cv2
 # Main
 if __name__ == "__main__":
@@ -238,27 +238,38 @@ if __name__ == "__main__":
 	createWalls()
 	createAlarm()
 	#fire_alarm = pygame.mixer.Sound("FireAlarm.wav")
+	from collections import Counter
 
+	STRATEGY = ['nearest_exit', 'safest_exit', 'least_crowded_exit']
+	status_list = []  
+	colors = {'nearest_exit' : DARKRED	, 'safest_exit': PURPLE, 'least_crowded_exit': GREEN}
 	for i in range(NUM_AGENTS):
-		player = Agent(i+1, deepcopy(layout), exits, HEALTH_POINTS, 1, True)
+		strategy = random.choice(STRATEGY)
+		status_list.append(strategy)
+		player = Agent(i+1, deepcopy(layout), exits, HEALTH_POINTS, 1, True, strategy=strategy, color=colors[strategy])
 		all_sprites.add(player)
 		all_agents.add(player)
 
 	all_agents_list = list(all_agents) 
-	colors = [PURPLE, LIGHTPURPLE, DARKPURPLE, ROYALPURPLE, LAVENDER]
-	for i in range(5):
-		agent_a = random.choice(all_agents_list)
-		agent_b = random.choice([a for a in all_agents_list if a != agent_a])  # Unikamy relacji do samego siebie
-		agent_a.getRelatives().append(agent_b.getID())
-		agent_b.getRelatives().append(agent_a.getID())
-		agent_a.communicates = True
-		agent_b.communicates = True
-		agent_a.image.fill(colors[i])
-		agent_b.image.fill(colors[i])
-		if agent_a.getDangerState() or agent_b.getDangerState():
+	# colors = [PURPLE, LIGHTPURPLE, DARKPURPLE, ROYALPURPLE, LAVENDER]
+	# for i in range(5):
+	# 	agent_a = random.choice(all_agents_list)
+	# 	agent_b = random.choice([a for a in all_agents_list if a != agent_a])  # Unikamy relacji do samego siebie
+	# 	agent_a.getRelatives().append(agent_b.getID())
+	# 	agent_b.getRelatives().append(agent_a.getID())
+	# 	agent_a.communicates = True
+	# 	agent_b.communicates = True
+	# 	agent_a.image.fill(colors[i])
+	# 	agent_b.image.fill(colors[i])
+	# 	if agent_a.getDangerState() or agent_b.getDangerState():
 				
-				agent_a.danger = agent_b.danger = True
-		print(f"A = {agent_a.getID()} {agent_a.getRelatives()}, B = {agent_b.getID()} {agent_b.getRelatives()}")
+	# 			agent_a.danger = agent_b.danger = True
+	# 	print(f"A = {agent_a.getID()} {agent_a.getRelatives()}, B = {agent_b.getID()} {agent_b.getRelatives()}")
+	status_counts = Counter(status_list)
+
+# Wypisz ile agentów ma każdy status
+	for status, count in status_counts.items():
+		print(f"Status '{status}': {count} agentów")
 	createFires()
 	
 	pause = False
@@ -297,7 +308,7 @@ if __name__ == "__main__":
 				agent.checkAlarm(soundAlarm)
 				communicate(agent)
 			for agent in all_agents:
-				agent.plan_()
+				agent.plan_(all_agents_list)
 				updateHealth(agent)
 
 			if (i%2 == 0): layout = propagateFire(layout)

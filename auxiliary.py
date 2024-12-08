@@ -28,11 +28,11 @@ def validPropagation(layout, i, j):
 # Auxiliar
 
 def getLayout(file):
-    #f = open('supermarket.txt', 'r').read()
+    # f = open('room_layouts/supermarket.txt', 'r').read()
 
 	#Provide the path
 
-	path = 'room_layouts/room_layout.txt'
+	path = 'room_layouts/supermarket.txt'
 	if(file is None): f = open(path, 'r').read()
 	else: f = open(file, 'r').read()
 	p = []
