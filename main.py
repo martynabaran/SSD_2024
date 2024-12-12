@@ -2,7 +2,7 @@ import pygame
 from auxiliary import *
 from random import choices
 from settings import *
-from sprites import *
+from spirites2 import *
 from copy import deepcopy
 import time
 
@@ -208,6 +208,34 @@ def communicate(speaker):
 		# 	print(f"speaker {speaker.getID()} informuje b {listener.getID()}")
 		# 	listener.receiveMessagefromRelative(speaker.getLayout())
 		# 	print(f"speaker danger = {speaker.getDangerState()} listener danger = {listener.getDangerState()}")
+
+import csv
+import os
+from collections import Counter
+# Funkcja do zapisywania statystyk do pliku CSV
+def save_simulation_stats(file_path, num_agents, strategy_counts, agents_saved, agents_dead, strategies, risk_levels):
+    # Sprawdzenie czy plik już istnieje, jeśli nie, to zapisujemy nagłówki
+    file_exists = os.path.exists(file_path)
+    
+    with open(file_path, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        
+        if not file_exists:
+            # Zapisujemy nagłówki do pliku, jeśli to pierwszy zapis
+            writer.writerow([
+                'NumAgents', 'Strategy', 'RiskLevel', 'AgentsSaved', 'AgentsDead', 'SavedGroup', 'DeadGroup'
+            ])
+        
+        # Zliczamy ile agentów przeżyło i z jakiej grupy
+        saved_group = [agent.strategy for agent in agents_saved]
+        dead_group = [agent.strategy for agent in agents_dead]
+        
+        for strategy in strategies:
+            # Zapisujemy wiersz z wynikami
+            writer.writerow([
+                num_agents, strategy, Counter(risk_levels)[strategy], len(agents_saved), len(agents_dead),
+                Counter(saved_group).get(strategy, 0), Counter(dead_group).get(strategy, 0)
+            ])
 import cv2
 # Main
 if __name__ == "__main__":
@@ -242,14 +270,18 @@ if __name__ == "__main__":
 
 	STRATEGY = ['nearest_exit', 'safest_exit', 'least_crowded_exit']
 	status_list = []  
+	risk_levels = []
 	colors = {'nearest_exit' : DARKRED	, 'safest_exit': PURPLE, 'least_crowded_exit': GREEN}
 	for i in range(NUM_AGENTS):
-		strategy = random.choice(STRATEGY)
+		# strategy = random.choice(STRATEGY)
+		strategy = STRATEGY[i % 3]
 		status_list.append(strategy)
-		player = Agent(i+1, deepcopy(layout), exits, HEALTH_POINTS, 1, True, strategy=strategy, color=colors[strategy])
+		# player = Agent(i+1, deepcopy(layout), exits, HEALTH_POINTS, 1, True, strategy=strategy, color=colors[strategy])
+		player = Agent(identifier=i+1,layout=deepcopy(layout),exits=exits,health=HEALTH_POINTS,risk=random.uniform(0, 1),communicates=True,strategy=strategy,color=colors[strategy])
 		all_sprites.add(player)
 		all_agents.add(player)
-
+		risk_levels.append(player.risk)
+		
 	all_agents_list = list(all_agents) 
 	# colors = [PURPLE, LIGHTPURPLE, DARKPURPLE, ROYALPURPLE, LAVENDER]
 	# for i in range(5):
@@ -265,8 +297,11 @@ if __name__ == "__main__":
 				
 	# 			agent_a.danger = agent_b.danger = True
 	# 	print(f"A = {agent_a.getID()} {agent_a.getRelatives()}, B = {agent_b.getID()} {agent_b.getRelatives()}")
+	
+	agents_saved = []
+	agents_dead = []
 	status_counts = Counter(status_list)
-
+	stats_file_path = 'simulation_stats.csv'
 # Wypisz ile agentów ma każdy status
 	for status, count in status_counts.items():
 		print(f"Status '{status}': {count} agentów")
@@ -311,8 +346,8 @@ if __name__ == "__main__":
 				agent.plan_(all_agents_list)
 				updateHealth(agent)
 
-			if (i%2 == 0): layout = propagateFire(layout)
-			if (i%1 == 0): layout = propagateSmoke(layout)
+			if (i%3 == 0): layout = propagateFire(layout)
+			if (i%2 == 0): layout = propagateSmoke(layout)
 
 			alarm()
 
@@ -323,11 +358,50 @@ if __name__ == "__main__":
 			# frame = np.rot90(frame)  # Obrót obrazu
 			# frame = np.flip(frame, axis=1)  # Lustrzane odbicie
 			# out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Zapis klatki do wideo
-
-    		
+			# 
+		
 		i+=1
 
 	pygame.mixer.pause()
 	time.sleep(2)
 	# out.release()
 	pygame.quit()
+
+	for agent in all_agents:
+		if not agent.isDead():
+			agents_saved.append(agent)
+		else:
+			agents_dead.append(agent)
+
+    # Zliczanie, ilu przeżyło i zginęło
+	print(f"Liczba agentów: {NUM_AGENTS}")
+	print(f"Przeżyło: {len(agents_saved)}")
+	print(f"Zginęło: {len(agents_dead)}")
+	
+	
+	agents_strategy_count = Counter([agent.strategy for agent in all_agents_list])
+	print(f"Statystyki strategii:")
+	for strategy, count in agents_strategy_count.items():
+		print(f"Strategia {strategy}: {count} agentów")
+		
+	low_risk = [agent for agent in all_agents_list if agent.risk < 0.3]
+	medium_risk = [agent for agent in all_agents_list if 0.3 <= agent.risk < 0.7]
+	high_risk = [agent for agent in all_agents_list if agent.risk >= 0.7]
+	
+	print(f"Agenci z niskim ryzykiem: {len(low_risk)}")
+	print(f"Agenci ze średnim ryzykiem: {len(medium_risk)}")
+	print(f"Agenci z wysokim ryzykiem: {len(high_risk)}")
+	summary = {
+        "total_agents": NUM_AGENTS,
+        "agents_saved": len(agents_saved),
+        "agents_dead": len(agents_dead),
+        "agents_by_strategy": dict(agents_strategy_count),
+        "agents_by_risk": {
+            "low": len(low_risk),
+            "medium": len(medium_risk),
+            "high": len(high_risk)
+        }
+    }
+	print("Podsumowanie symulacji:")
+	for key, value in summary.items():
+		print(f"{key}: {value}")

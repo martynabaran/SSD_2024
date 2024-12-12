@@ -1,0 +1,4 @@
+NumAgents,Strategy,RiskLevel,AgentsSaved,AgentsDead,SavedGroup,DeadGroup
+6,nearest_exit,0,0,0,0,0
+6,safest_exit,0,0,0,0,0
+6,least_crowded_exit,0,0,0,0,0

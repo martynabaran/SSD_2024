@@ -224,51 +224,106 @@ class Agent(pygame.sprite.Sprite):
         return [[self.x,self.y]] #desisti
     
 
-    def calculate_crowdedness(self, exits, agents, radius):
+    # def calculate_crowdedness(self, exits, agents, radius):
+    #     crowdedness = {}
+    #     for exit in exits:
+    #         exit = tuple(exit)
+    #         x_exit, y_exit = exit
+    #         crowdedness[exit] = 0
+            
+    #         for agent in agents:
+    #             if not agent.isDead():
+    #                 x_agent, y_agent = agent.getPosition()
+    #                 # Sprawdzenie czy agent znajduje się w promieniu wokół wyjścia
+    #                 if abs(x_agent - x_exit) <= radius and abs(y_agent - y_exit) <= radius:
+    #                     crowdedness[exit] += 1
+    #     return crowdedness
+
+
+    def calculate_crowdedness_and_danger(self, exits, agents, radius):
         crowdedness = {}
+        danger_level = {}  # Nowa struktura danych do śledzenia zagrożenia
         for exit in exits:
             exit = tuple(exit)
             x_exit, y_exit = exit
             crowdedness[exit] = 0
+            danger_level[exit] = 0
             
             for agent in agents:
                 if not agent.isDead():
                     x_agent, y_agent = agent.getPosition()
-                    # Sprawdzenie czy agent znajduje się w promieniu wokół wyjścia
                     if abs(x_agent - x_exit) <= radius and abs(y_agent - y_exit) <= radius:
                         crowdedness[exit] += 1
-        return crowdedness
+
+            # Oblicz poziom zagrożenia w promieniu wokół wyjścia
+            for dx in range(-radius, radius + 1):
+                for dy in range(-radius, radius + 1):
+                    x, y = x_exit + dx, y_exit + dy
+                    if 0 <= x < len(self.layout) and 0 <= y < len(self.layout[0]):
+                        if isFire(self.layout, x, y):
+                            danger_level[exit] += 10  # Wysoka kara za ogień
+                        elif isSmoke(self.layout, x, y):
+                            danger_level[exit] += 5  # Niższa kara za dym
+        return crowdedness, danger_level
+
+    # def move_to_least_crowded_exit(self, all_agents):
+    #     # print(type(self.exits))
+    #     # print(type(self.exits[0]))
+    #     try:
+    #         # Oblicz zagęszczenie
+    #         crowdedness = self.calculate_crowdedness(self.exits, all_agents, radius=5)
+    #         print(f"zatloczenie: {crowdedness}")
+    #         if crowdedness:
+    #         # Znajdź wyjście o najmniejszym zagęszczeniu
+    #             least_crowded_exit_x, least_crowded_exit_y = min(crowdedness, key=crowdedness.get)
+    #             print(f"typ least crowded: {least_crowded_exit_x}, {least_crowded_exit_y}")
+    #         else:
+    #             # Jeśli brak danych, użyj najbliższego wyjścia
+    #             print("No data about crowdedness. Falling back to nearest exit.")
+    #             return self.Dijkstra()
+
+    #         # Znajdź wyjście o najmniejszym zagęszczeniu
+    #         # least_crowded_exit = list(min(crowdedness, key=crowdedness.get))
+
+    #         # Wyznacz ścieżkę do wyjścia
+    #         path = self.DijkstraToTarget(least_crowded_exit_x,least_crowded_exit_y)
+    #         print(type(path))
+    #         if path is None:
+    #             print("Dijkstra_to_exit returned None.")
+    #             return self.Dijkstra()
+
+    #         return path
+    #     except Exception as e:
+    #         print(f"Error in move_to_least_crowded_exit: {e}")
+    #         return []
 
     def move_to_least_crowded_exit(self, all_agents):
-        # print(type(self.exits))
-        # print(type(self.exits[0]))
         try:
-            # Oblicz zagęszczenie
-            crowdedness = self.calculate_crowdedness(self.exits, all_agents, radius=5)
-            print(f"zatloczenie: {crowdedness}")
-            if crowdedness:
-            # Znajdź wyjście o najmniejszym zagęszczeniu
-                least_crowded_exit_x, least_crowded_exit_y = min(crowdedness, key=crowdedness.get)
-                print(f"typ least crowded: {least_crowded_exit_x}, {least_crowded_exit_y}")
-            else:
-                # Jeśli brak danych, użyj najbliższego wyjścia
-                print("No data about crowdedness. Falling back to nearest exit.")
-                return self.Dijkstra()
-
-            # Znajdź wyjście o najmniejszym zagęszczeniu
-            # least_crowded_exit = list(min(crowdedness, key=crowdedness.get))
-
+            # Oblicz zatłoczenie i zagrożenie
+            crowdedness, danger_level = self.calculate_crowdedness_and_danger(self.exits, all_agents, radius=5)
+            print(f"Zatłoczenie: {crowdedness}")
+            print(f"Poziom zagrożenia: {danger_level}")
+            
+            # Połącz obie metryki z uwzględnieniem ryzyka agenta
+            combined_score = {
+                exit: crowdedness[exit] + danger_level[exit] 
+                for exit in crowdedness
+            }
+            
+            # Znajdź wyjście o najmniejszym łącznym wyniku
+            least_crowded_exit_x, least_crowded_exit_y = min(combined_score, key=combined_score.get)
+            print(f"Najlepsze wyjście: {least_crowded_exit_x}, {least_crowded_exit_y}")
+            
             # Wyznacz ścieżkę do wyjścia
-            path = self.DijkstraToTarget(least_crowded_exit_x,least_crowded_exit_y)
-            print(type(path))
+            path = self.DijkstraToTarget(least_crowded_exit_x, least_crowded_exit_y)
             if path is None:
-                print("Dijkstra_to_exit returned None.")
+                print("DijkstraToTarget zwróciła None. Próbuję najbliższego wyjścia.")
                 return self.Dijkstra()
-
             return path
         except Exception as e:
-            print(f"Error in move_to_least_crowded_exit: {e}")
+            print(f"Błąd w move_to_least_crowded_exit: {e}")
             return []
+
 
     def DijkstraToTarget(self, targetX, targetY):
         source = [self.x, self.y]
@@ -382,7 +437,7 @@ class Agent(pygame.sprite.Sprite):
         # Initialize stuff
         for i in range(len(self.layout)):
             visit = []
-            for j in range(len(self.layout)):
+            for j in range(len(self.layout[0])):
                 visit.append(0)
                 parents[(i,j)]  = None
                 distance[(i,j)] = math.inf
