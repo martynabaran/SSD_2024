@@ -5,21 +5,23 @@ from copy import deepcopy
 
 
 # Predicates
+def inLayout(layout, i, j):
+    return (0<= i < len(layout)) and (0 <= j < len(layout[0]))
 
 def isFire(layout, i, j):
-	return layout[i][j] == 'F'
+	return inLayout(layout, i, j ) and layout[i][j] == 'F'
 
 def isSmoke(layout, i, j):
-	return layout[i][j] == 'S'
+	return inLayout(layout, i, j ) and layout[i][j] == 'S'
 
 def isWall(layout, i, j):
-	return layout[i][j] == 'W'
+	return inLayout(layout, i, j ) and layout[i][j] == 'W'
 
 def isExit(layout, i, j):
-	return layout[i][j] == 'E'
+	return inLayout(layout, i, j ) and layout[i][j] == 'E'
 
 def isAlarm(layout, i, j):
-	return layout[i][j] == 'A'
+	return inLayout(layout, i, j ) and layout[i][j] == 'A'
 
 def validPropagation(layout, i, j):
 	return not isWall(layout,i,j) and not isFire(layout,i,j) and not isSmoke(layout,i,j) and not isExit(layout,i,j)
@@ -32,7 +34,7 @@ def getLayout(file):
 
 	#Provide the path
 
-	path = 'room_layouts/supermarket.txt'
+	path = 'room_layouts/supermarket3.txt'
 	if(file is None): f = open(path, 'r').read()
 	else: f = open(file, 'r').read()
 	p = []

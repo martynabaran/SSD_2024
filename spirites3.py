@@ -92,8 +92,23 @@ class Agent(pygame.sprite.Sprite):
         self.volume =  new_volume
         
     def move(self, dx=0, dy=0):
-        self.x += dx
-        self.y += dy
+        # self.x += dx
+        # self.y += dy
+        
+        self.partial_x += dx* self.speed
+        self.partial_y += dy * self.speed
+        move_x = int(self.partial_x)
+        move_y = int(self.partial_y)
+        # print(f"agent: {self.getID()}, wiek: {self.age} - move ({move_x}, {move_y})")
+        if abs(move_x) > 0 or abs(move_y) > 0:
+            print(f"porusza się agent: {self.getID()}, wiek: {self.age} move ({move_x}, {move_y})")
+            self.partial_x -= move_x
+            self.partial_y -= move_y
+            self.x += move_x
+            self.y += move_y
+        else:
+            print(f"NIE porusza, agent: {self.getID()}, wiek: {self.age}, move ({move_x}, {move_y})")
+        
 
     def die(self):
         self.dead = True
@@ -154,9 +169,13 @@ class Agent(pygame.sprite.Sprite):
         prob = [1/self.id, 1-(1/self.id)]
         if (choices(move, prob)):
             i = random.randrange(0, 4)
-            # self.partial_x += row[i] * self.speed
-            # self.partial_y += col[i] * self.speed
-
+            self.partial_x += row[i] * self.speed
+            self.partial_y += col[i] * self.speed
+            move_x = int(self.partial_x)
+            move_y = int(self.partial_y)
+            if abs(move_x) > 0 or abs(move_y) > 0:
+                self.partial_x -= move_x
+                self.partial_y -= move_y
             # # self.x += int(self.partial_x)
             # # self.y += int(self.partial_y)
             # x = self.x + int(self.partial_x)
@@ -164,14 +183,18 @@ class Agent(pygame.sprite.Sprite):
             # # Zatrzymaj tylko część ułamkową dla następnych kroków
             # self.partial_x -= int(self.partial_x)
             # self.partial_y -= int(self.partial_y)
-
-            x = self.x + row[i]
-            y = self.y + col[i]
+                x = self.x + move_x
+                y = self.y + move_y
+            # x = self.x + row[i]
+            # y = self.y + col[i]
             # x = self.x + int(row[i] * self.speed)
             # y = self.y + int(col[i] * self.speed)
 
-            if (not isWall(self.layout,x,y) and not isFire(self.layout,x,y) and not isSmoke(self.layout,x,y) and not isExit(self.layout,x,y) and not isAlarm(self.layout,x,y)):
-                return [[x, y]]
+                if inLayout(self.layout, x,y) and (not isWall(self.layout,x,y) and not isFire(self.layout,x,y) and not isSmoke(self.layout,x,y) and not isExit(self.layout,x,y) and not isAlarm(self.layout,x,y)):
+                        return [[x, y]]
+                else:
+                    return [[self.x, self.y]]
+                
         return [[self.x, self.y]]
     def percept(self, layout):
         # print(f"[DEBUG] Agent {self.id}: Perceiving environment")
@@ -192,11 +215,11 @@ class Agent(pygame.sprite.Sprite):
     def plan_(self, all_agents):
         # print(f"[DEBUG] Agent {self.id}: Planning, Danger: {self.danger}, Reconsider: {self.reconsider}")
         if not self.danger:
-            print("planowanie random")
+            # print("planowanie random")
             self.plan = self.moveRandom()
             # print(f"[DEBUG] Agent {self.id}: Random move plan: {self.plan}")
         elif self.rescue_relatives == True:
-            print("planowanie resuce")
+            # print("planowanie resuce")
             relative = self.check_for_relatives_in_range(all_agents, grid_size=10)
             if relative:
                 self.rescue_counter +=1
@@ -204,16 +227,16 @@ class Agent(pygame.sprite.Sprite):
                 # print(f"[DEBUG] Agent {self.id}: Found relative {relative.getID()} in range. Moving to relative at position: {relative.getPosition()}. Plan: {self.plan}")
                 
                 # if abs(self.x - relative.x) <= 2 and abs(self.y - relative.y) <= 2:
-                print(f"[DEBUG] Agent {self.id}: Synchronizing exit with relative {relative.id}")
+                # print(f"[DEBUG] Agent {self.id}: Synchronizing exit with relative {relative.id}")
                 self.synchronize_exit(relative)
             else:
                 # Jeśli nie znaleziono krewnych, zmień flagę i przejdź do ucieczki
-                print(f"[DEBUG] Agent {self.id}: No relatives found in range. Switching to escape mode.")
+                # print(f"[DEBUG] Agent {self.id}: No relatives found in range. Switching to escape mode.")
                 self.rescue_relatives = False
                 self.reconsider = True
                 self.plan = self.Dijkstra()
         elif self.reconsider:
-            print("planowanie reconsider")
+            # print("planowanie reconsider")
             if self.strategy == "nearest_exit":
                 self.plan = self.Dijkstra()
             elif self.strategy == "safest_exit":
@@ -223,7 +246,7 @@ class Agent(pygame.sprite.Sprite):
                 self.plan = self.DijkstraToTarget(all_agents)
             else:
                 self.plan = self.Dijkstra()
-            print(f"[DEBUG] Agent {self.id}: Planned path: {self.plan}")
+            # print(f"[DEBUG] Agent {self.id}: Planned path: {self.plan}")
 
     def panic(self):
         # print(f"[DEBUG] Agent {self.id}: Panic mode activated")
@@ -351,7 +374,7 @@ class Agent(pygame.sprite.Sprite):
                         enqueued[(x, y)] = True
 
         if not my_dest:
-            print(f"[DEBUG] Agent {self.id}: No path to exit found, triggering panic")
+            # print(f"[DEBUG] Agent {self.id}: No path to exit found, triggering panic")
             return self.panic()
 
         path = []
@@ -399,39 +422,39 @@ class Agent(pygame.sprite.Sprite):
         try:
             # Oblicz zatłoczenie i zagrożenie dla wszystkich wyjść
             crowdedness, danger_level = self.calculate_crowdedness_and_danger(self.exits, all_agents, 3)
-            print(f"Agent {self.getID()} - Zatłoczenie: {crowdedness}")
-            print(f"Agent {self.getID()} - Poziom zagrożenia: {danger_level}")
+            # print(f"Agent {self.getID()} - Zatłoczenie: {crowdedness}")
+            # print(f"Agent {self.getID()} - Poziom zagrożenia: {danger_level}")
 
             # Wybierz najmniej zatłoczone wyjście
             best_exit = min(
                 self.exits,
                 key=lambda exit: crowdedness[tuple(exit)]  # Bierzemy wyjście o najniższym zatłoczeniu
             )
-            print(f"Agent {self.getID()} - Wybrane wyjście: {best_exit}")
+            # print(f"Agent {self.getID()} - Wybrane wyjście: {best_exit}")
 
             # Uruchom Dijkstrę do wybranego wyjścia
             path = self.DijkstraToTarget([tuple(best_exit)])
             if path:
-                print(f"Agent {self.getID()} - Ścieżka do wybranego wyjścia: {path}")
+                # print(f"Agent {self.getID()} - Ścieżka do wybranego wyjścia: {path}")
                 return path
 
             # Jeśli Dijkstra nie znajdzie ścieżki, przechodzimy do trybu paniki
-            print(f"Agent {self.getID()} - Nie znaleziono ścieżki do wybranego wyjścia, przechodzę do trybu paniki.")
+            # print(f"Agent {self.getID()} - Nie znaleziono ścieżki do wybranego wyjścia, przechodzę do trybu paniki.")
             return self.panic()
 
         except Exception as e:
-            print(f"Błąd w move_to_least_crowded_exit dla agenta {self.getID()}: {e}")
+            # print(f"Błąd w move_to_least_crowded_exit dla agenta {self.getID()}: {e}")
             return self.panic()
 
 
     def check_for_relatives_in_range(self, agents, grid_size=10):
-        print("[DEBUG] agent ma jakichś krewnych")
+        # print("[DEBUG] agent ma jakichś krewnych")
         for agent in agents:
             if agent.getID() in self.getRelatives():  # Sprawdź, czy to krewny
                 distance_x = abs(self.x - agent.x)
                 distance_y = abs(self.y - agent.y)
                 if distance_x <= grid_size and distance_y <= grid_size:
-                    print("[DEBUG] agent znalazł krewnego w pobliżu")
+                    # print("[DEBUG] agent znalazł krewnego w pobliżu")
                     return agent  # Zwróć krewnego w zasięgu
         return None
 
@@ -458,12 +481,12 @@ class Agent(pygame.sprite.Sprite):
         return best_exit
 
     def DijkstraToTarget(self, all_agents, target=None):
-        print(f"[DEBUG] Agent {self.id}: Starting DijkstraToTarget's algorithm")
+        # print(f"[DEBUG] Agent {self.id}: Starting DijkstraToTarget's algorithm")
         if not target:
         # Wybierz najmniej zatłoczone wyjście
             best_exit = self.select_least_crowded_exit(all_agents)
         else:
-            print("[DEBUG] mam zadany cel")
+            # print("[DEBUG] mam zadany cel")
             best_exit = tuple(target)
         if best_exit is None:
             # print(f"[DEBUG] Agent {self.id}: No valid exit found. Triggering panic.")
@@ -474,7 +497,7 @@ class Agent(pygame.sprite.Sprite):
 
         # Jeśli agent już jest przy wybranym wyjściu
         if source == best_exit:
-            print(f"[DEBUG] Agent {self.id}: Already at the best exit")
+            # print(f"[DEBUG] Agent {self.id}: Already at the best exit")
             return [list(source)]
 
         # Współrzędne ruchu w czterech kierunkach
@@ -504,7 +527,7 @@ class Agent(pygame.sprite.Sprite):
                     path.append(list(current))
                     current = parents[current]
                 path.reverse()
-                print(f"[DEBUG] Agent {self.id}: Path to exit found: {path}")
+                # print(f"[DEBUG] Agent {self.id}: Path to exit found: {path}")
                 return path
 
             # Eksploruj sąsiadów
@@ -529,7 +552,7 @@ class Agent(pygame.sprite.Sprite):
                     parents[neighbor] = current
                     heapq.heappush(queue, (alt, neighbor))
 
-        print(f"[DEBUG] Agent {self.id}: No path to exit found. Triggering panic.")
+        # print(f"[DEBUG] Agent {self.id}: No path to exit found. Triggering panic.")
         return self.panic()
 
     def Dijkstra_safest(self, danger_sources):
@@ -607,10 +630,7 @@ class Agent(pygame.sprite.Sprite):
                     if isSmoke(self.layout, x, y):
                         weight += 1 - self.risk
 
-                    # # Add safety factor
-                    # safety_factor = min(
-                    #     [math.sqrt((x - sx) ** 2 + (y - sy) ** 2) for sx, sy in danger_sources]
-                    # )
+                    
                     if danger_sources:
                         safety_factor = min(
                             [math.sqrt((x - sx) ** 2 + (y - sy) ** 2) for sx, sy in danger_sources]
@@ -652,8 +672,8 @@ class Agent(pygame.sprite.Sprite):
             for j in range(len(self.layout[0])):
                 if isFire(self.layout, i, j) or isSmoke(self.layout, i, j):  # Definiowanie zagrożenia
                     danger_sources.append((i, j))
-        if not danger_sources:
-            print("Nie znaleziono zagrożeń w layout!")
+        # if not danger_sources:
+            # print("Nie znaleziono zagrożeń w layout!")
         return danger_sources
 
 

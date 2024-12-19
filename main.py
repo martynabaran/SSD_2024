@@ -371,14 +371,14 @@ if __name__ == "__main__":
                 agent.checkAlarm(soundAlarm)
                 communicate(agent)
                 if agent.danger and len(agent.relatives) > 0 and agent.rescue_counter == 0:
-                    print(f"[DEBUG] Agent {agent.id}: Danger detected and relatives present. Activating rescue mode.")
+                    # print(f"[DEBUG] Agent {agent.id}: Danger detected and relatives present. Activating rescue mode.")
                     agent.rescue_relatives = True
                 else:
                     agent.rescue_relatives = False
             
             for agent in all_agents:
                 if not agent.synchronized_exit:
-                    print(f"[DEBUG] Agent {agent.id}: Planning exit strategy.")
+                    # print(f"[DEBUG] Agent {agent.id}: Planning exit strategy.")
                     agent.plan_(all_agents_list)
                 updateHealth(agent,i)
 
