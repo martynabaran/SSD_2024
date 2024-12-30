@@ -1,0 +1,54 @@
+simulation:
+  # Definiowanie liczby agentów w symulacji
+  num_agents: 50
+  
+  # Wiek agentów (opcjonalne: można określić zakres, w przeciwnym razie zostanie wybrany losowy)
+  age_range:
+    min_age: 18
+    max_age: 80
+  
+  # Definiowanie strategii agentów (opcjonalne: można wybrać, jakie strategie mają być dostępne)
+  strategies:
+    nearest_exit: 20
+    safest_exit: 20
+    least_crowded_exit: 10
+  
+  # Liczba rodzin w pomieszczeniu (opcjonalne)
+  num_families: 5
+  
+  # Określenie liczby wyjść w symulacji (opcjonalne)
+  exits:
+    - exit_1
+    - exit_2
+    - exit_3
+  
+  # Parametry agentów: domyślne wartości
+  agent_attributes:
+    health: 100        # Domyślny stan zdrowia agenta (procent)
+    risk: [0.1,0.9]          # Poziom ryzyka (0.0 - brak ryzyka, 1.0 - najwyższe ryzyko)
+    communicates: 30  # Zdolność do komunikacji
+    layout: "room_layouts\\supermarket3.txt"  # Ścieżka do pliku z układem budynku
+    range: 5           # Zasięg widzenia agenta (np. w jednostkach)
+    volume: 4          # Objętość zajmowaną przez agenta (np. w jednostkach objętości)
+  
+  
+  # Inne parametry symulacji (opcjonalne)
+  alarm_activation: false  # aktywacja alarmu
+  fire_probability: 1             # Prawdopodobieństwo wystąpienia pożaru
+  smoke_probability: 0.3            # Prawdopodobieństwo wystąpienia dymu
+  
+  # Parametry dla algorytmu Dijkstry
+  dijkstra_weights:
+    fire_weight: 2   # Waga komórek w przypadku ognia
+    smoke_weight: 1  # Waga komórek w przypadku dymu
+    normal_weight: 1 # Waga komórek normalnych
+  
+  vol_range: 5
+
+# Inne opcje związane z interfejsem, np. czas symulacji, częstotliwość aktualizacji:
+interface:
+  window_size:
+    width: 800
+    height: 600
+  simulation_speed: 1  # Szybkość symulacji (1 = normalna prędkość, 2 = podwójna prędkość)
+

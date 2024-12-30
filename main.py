@@ -6,7 +6,13 @@ from spirites3 import *
 from copy import deepcopy
 import time
 import uuid
+import csv
+import os
+from collections import Counter
+import cv2
+
 simulation_id = str(uuid.uuid4())
+
 def drawGrid():
     for x in range(0, WIDTH, TILESIZE):
         pygame.draw.line(SCREEN, BLACK, (x, 0), (x, HEIGHT))
@@ -16,7 +22,7 @@ def drawGrid():
 def updateHealth(agent,i):
     pos = agent.getPosition()
     identifier  = agent.getID()
-    if (isExit(layout,pos[0], pos[1]) and identifier not in agents_saved):
+    if ((isExit(layout,pos[0], pos[1]) or not inLayout(layout, pos[0], pos[1])) and identifier not in agents_saved):
         agents_saved.append(identifier)
         agent.saved_at = i
         all_sprites.remove(agent)
@@ -86,13 +92,23 @@ def addSmoke(i,j):
     all_sprites.add(smoke)
     all_smokes.add(smoke)
 
+def propagateFire(layout, config=None):
+    """
+    Propaguje ogień w układzie na podstawie konfiguracji.
 
-def propagateFire(layout):
-    spread    = [True, False] #either it spreads or not
-    propagate = [FIRE,  1-FIRE]
-    smoke     = [SMOKE, 1-SMOKE]
-    row       = [-1, 0, 0, 1]
-    col       = [0, -1, 1, 0]
+    :param layout: Układ (np. mapa).
+    :param config: (Opcjonalnie) Słownik konfiguracji. Jeśli None, używane są globalne zmienne.
+    :return: Zaktualizowany layout.
+    """
+    # Pobieranie wartości z konfiguracji lub użycie domyślnych globalnych zmiennych
+    fire_val = config.get("simulation", {}).get("fire_propagation", FIRE) if config else FIRE
+    smoke_val = config.get("simulation", {}).get("smoke_propagation", SMOKE) if config else SMOKE
+
+    spread = [True, False]  # Zmienna do propagacji
+    propagate = [fire_val, 1 - fire_val]
+    smoke = [smoke_val, 1 - smoke_val]
+    row = [-1, 0, 0, 1]
+    col = [0, -1, 1, 0]
 
     new_fires = []
     for fire in all_fires:
@@ -103,15 +119,15 @@ def propagateFire(layout):
         if (x > len(layout)-1 or y > len(layout[0])-1): continue
 
         propagate_ = propagate
-        if (isSmoke(layout,x, y)):
-            propagate_[0] += (1-propagate_[1])/2
+        if (isSmoke(layout, x, y)):
+            propagate_[0] += (1 - propagate_[1]) / 2
             propagate_[1] = 1 - propagate_[0]
-        if (choices(spread, propagate_)[0] and not isWall(layout,x,y) and not isFire(layout,x,y) and not isExit(layout,x,y)):
+        if (choices(spread, propagate_)[0] and not isWall(layout, x, y) and not isFire(layout, x, y) and not isExit(layout, x, y)):
             for smoke in all_smokes:
                 if smoke.x == x and smoke.y == y:
                     all_smokes.remove(smoke)
                     break
-            new_fires.append([x,y])
+            new_fires.append([x, y])
 
     for fire in new_fires:
         addFire(fire[0], fire[1])
@@ -119,52 +135,46 @@ def propagateFire(layout):
     return layout
 
 
-def propagateSmoke(layout):
-    spread = [True, False]        #either it spreads or not
+def propagateSmoke(layout, config=None):
+    """
+    Propaguje dym w układzie na podstawie konfiguracji.
+
+    :param layout: Układ (np. mapa).
+    :param config: (Opcjonalnie) Słownik konfiguracji. Jeśli None, używane są globalne zmienne.
+    :return: Zaktualizowany layout.
+    """
+    # Pobieranie wartości z konfiguracji lub użycie domyślnych globalnych zmiennych
+    spread_val = [True, False]        #either it spreads or not
     wind   = [0.4, 0.3, 0.2, 0.1]
-    smk    = [SMOKE, 1-SMOKE]
-    row    = [-1, 0, 0, 1]
-    col    = [0, -1, 1, 0]
-    
+    smk_val = config.get("simulation", {}).get("smoke_propagation", SMOKE) if config else SMOKE
+
+    smk = [smk_val, 1 - smk_val]
+    row = [-1, 0, 0, 1]
+    col = [0, -1, 1, 0]
+
     for fire in all_fires:
-
         for i in range(len(row)):
-
             x = fire.x + row[i]
             y = fire.y + col[i]
 
             if (x > len(layout)-1 or y > len(layout[0])-1): continue
 
-            if (choices(spread, smk)[0] and validPropagation(layout,x,y)):
-                addSmoke(x,y)
-            if (choices(spread, smk)[0] and validPropagation(layout,x,y)):
-                addSmoke(x,y)
-            if (choices(spread, smk)[0] and validPropagation(layout,x,y)):
-                addSmoke(x,y)
-            if (choices(spread, smk)[0] and validPropagation(layout,x,y)):
-                addSmoke(x,y)
-
+            if (choices(spread_val, smk)[0] and validPropagation(layout, x, y)):
+                addSmoke(x, y)
 
     for smoke in all_smokes:
-
         for i in range(len(row)):
-
             x = smoke.x + row[i]
             y = smoke.y + col[i]
 
             if (x > len(layout)-1 or y > len(layout[0])-1): continue
 
-            go = choices(spread, smk)[0]
-            if (go and validPropagation(layout,x,y)):
-                addSmoke(x, y)
-            if (go and validPropagation(layout,x,y)):
-                addSmoke(x, y)
-            if (go and validPropagation(layout,x,y)):
-                addSmoke(x, y)
-            if (go and validPropagation(layout,x,y)):
+            go = choices(spread_val, smk)[0]
+            if (go and validPropagation(layout, x, y)):
                 addSmoke(x, y)
 
     return layout
+
 
 
 def draw():				
@@ -189,9 +199,18 @@ def drawText(surf, text, size, x, y):
     text_rect = text_surface.get_rect()
     text_rect.midtop = (int(x),int(y))
     surf.blit(text_surface, text_rect)
+def assertInRange(speaker, listener, config=None):
+    """
+    Sprawdza, czy odległość między speakerem a listenerem mieści się w dopuszczalnym zakresie.
 
-def assertInRange(speaker, listener):
-    return abs(speaker.x - listener.x)<=VOL_RANGE and abs(speaker.y - listener.y)<=VOL_RANGE
+    :param speaker: Obiekt reprezentujący mówcę.
+    :param listener: Obiekt reprezentujący słuchacza.
+    :param config: (Opcjonalnie) Słownik konfiguracji. Jeśli None, używana jest globalna zmienna VOL_RANGE.
+    :return: True, jeśli listener znajduje się w zakresie od speakera, False w przeciwnym razie.
+    """
+    # Pobieranie wartości vol_range z konfiguracji lub użycie domyślnej VOL_RANGE
+    vol_range = config.get("simulation", {}).get("vol_range", VOL_RANGE) if config else VOL_RANGE
+    return abs(speaker.x - listener.x) <= vol_range and abs(speaker.y - listener.y) <= vol_range
 
 def communicate(speaker):
     if (not speaker.isCommunicative()):
@@ -200,44 +219,9 @@ def communicate(speaker):
         if (speaker.getID() == listener.getID()): continue
         if assertInRange(speaker, listener):
             listener.receiveMessage(speaker.getLayout())
-        # if listener.getID() in speaker.relatives:
-        # 	print(f"PRZED: speaker danger = {speaker.getDangerState()} listener danger = {listener.getDangerState()}")
-            
-        # 	if speaker.getDangerState() or listener.getDangerState():				
-        # 		speaker.danger = listener.danger = True
 
-        # 	print(f"speaker {speaker.getID()} informuje b {listener.getID()}")
-        # 	listener.receiveMessagefromRelative(speaker.getLayout())
-        # 	print(f"speaker danger = {speaker.getDangerState()} listener danger = {listener.getDangerState()}")
 
-import csv
-import os
-from collections import Counter
-# Funkcja do zapisywania statystyk do pliku CSV
-def save_simulation_stats(file_path, num_agents, strategy_counts, agents_saved, agents_dead, strategies, risk_levels):
-    # Sprawdzenie czy plik już istnieje, jeśli nie, to zapisujemy nagłówki
-    file_exists = os.path.exists(file_path)
-    
-    with open(file_path, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        
-        if not file_exists:
-            # Zapisujemy nagłówki do pliku, jeśli to pierwszy zapis
-            writer.writerow([
-                'NumAgents', 'Strategy', 'RiskLevel', 'AgentsSaved', 'AgentsDead', 'SavedGroup', 'DeadGroup'
-            ])
-        
-        # Zliczamy ile agentów przeżyło i z jakiej grupy
-        saved_group = [agent.strategy for agent in agents_saved]
-        dead_group = [agent.strategy for agent in agents_dead]
-        
-        for strategy in strategies:
-            # Zapisujemy wiersz z wynikami
-            writer.writerow([
-                num_agents, strategy, Counter(risk_levels)[strategy], len(agents_saved), len(agents_dead),
-                Counter(saved_group).get(strategy, 0), Counter(dead_group).get(strategy, 0)
-            ])
-import cv2
+
 
 def gather_agent_data(all_agents_list):
     # Przygotowanie nagłówków do pliku CSV
@@ -265,10 +249,162 @@ def gather_agent_data(all_agents_list):
             ]
             writer.writerow(row)  # Zapisanie wiersza z danymi o agencie
 
+import random
+from copy import deepcopy
+import yaml
+
+# Funkcja do wczytania konfiguracji
+def load_config(config_file='config.yaml'):
+    try:
+        with open(config_file, 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"Plik konfiguracyjny {config_file} nie istnieje. Używane będą wartości domyślne.")
+        return {}
+
+# Funkcja do inicjalizacji agentów
+def initialize_agents(config, num_agents, layout=None, exits=None):
+    default_values = {
+        "health": 100,
+        "risk_range": (0.0, 1.0),
+        "communicates": num_agents,
+        "strategies": {"nearest_exit": 33, "safest_exit": 33, "least_crowded_exit": 34},
+        "range": VIS_RANGE,
+        "volume": VOL_RANGE
+    }
+
+    # Pobierz wartości z pliku konfiguracyjnego lub ustaw domyślne
+    simulation_config = config.get('simulation', {})
+    agent_attributes = simulation_config.get('agent_attributes', {})
+    
+    health = agent_attributes.get('health', default_values["health"])
+    risk_range = agent_attributes.get('risk', default_values["risk_range"])
+    communicates = agent_attributes.get('communicates', default_values["communicates"])
+    range_ = agent_attributes.get('range', default_values["range"])
+    volume = agent_attributes.get('volume', default_values["volume"])
+    
+    strategies = simulation_config.get('strategies', [])
+    print(strategies)
+    strategy_counts =  strategies if strategies else default_values["strategies"]
+
+
+    # Przygotuj agentów
+    all_agents = pygame.sprite.Group()
+    strategy_pool = []
+    for strategy, count in strategy_counts.items():
+        strategy_pool.extend([strategy] * count)
+
+    colors = {'nearest_exit': "DARKRED", 'safest_exit': "PURPLE", 'least_crowded_exit': "GREEN"}
+    
+    for i in range(num_agents):
+        strategy = strategy_pool.pop(0) if strategy_pool else random.choice(list(colors.keys()))
+        risk = random.uniform(*risk_range)
+        agent = Agent(
+            identifier=i + 1,
+            layout=deepcopy(layout),
+            exits=exits,
+            health=health,
+            risk=risk,
+            communicates=(i < communicates),
+            strategy=strategy,
+            color=colors[strategy],
+            range=range_,
+            volume=volume
+        )
+        all_agents.add(agent)
+    
+    return all_agents
+
+def initialize_families(config, agents):
+    """
+    Inicjalizuje rodziny na podstawie konfiguracji.
+    
+    :param config: Słownik z konfiguracją symulacji.
+    :param agents: Lista agentów.
+    :return: Zaktualizowana lista agentów z przypisanymi rodzinami.
+    """
+    # Pobieranie liczby rodzin z konfiguracji
+    num_families = config.get("simulation", {}).get("num_families", 0)
+    
+    # Jeśli liczba rodzin jest zerowa lub brak pola w konfiguracji, nie tworzymy rodzin
+    if num_families <= 0:
+        print("Rodziny nie zostały zainicjalizowane, ponieważ liczba rodzin wynosi 0 lub jest nieokreślona.")
+        return agents
+
+    # Tworzenie rodzin
+    all_agents_list = list(agents)
+    random.shuffle(all_agents_list)  # Losowe przemieszanie agentów
+    families_created = 0
+    family_colors = [
+        (102, 51, 153),  # Ciemny fiolet
+        (0, 128, 128),   # Turkusowy
+        (128, 0, 128),   # Fioletowy
+        (75, 0, 130),    # Indygo
+        (210, 105, 30),  # Czekoladowy
+        (244, 164, 96),  # Piaskowy
+        (139, 69, 19),   # Brązowy
+        (46, 139, 87),   # Zielony morski
+        (72, 61, 139),   # Ciemny niebieski
+        (112, 128, 144), # Szaroniebieski
+        (116, 221, 195),
+        (214, 27, 98),
+        (19, 158, 44),
+        (103, 123, 217),
+        (164, 110, 169),
+        (112, 125, 26),
+        (3, 87, 14),
+        (61, 31, 90),
+        (59, 50, 219),
+        (14, 4, 2),
+        (0, 247, 241),
+        (204, 67, 196),
+        (244, 21, 223),
+        (177, 250, 200),
+        (152, 231, 244),
+        (70, 162, 30),
+        (8, 136, 169),
+        (185, 234, 221),
+        (141, 174, 172),
+        (254, 70, 87),
+        (3, 60, 47),
+        (148, 0, 79),
+        (45, 238, 9),
+        (67, 0, 235),
+        (232, 98, 90),
+        (76, 148, 185),
+        (104, 130, 159),
+        (147, 147, 181),
+        (98, 129, 110),
+        (235, 110, 210)
+    ]
+
+    for i in range(num_families):
+        if len(all_agents_list) < 2:
+            print("Nie można stworzyć więcej rodzin, ponieważ zabrakło agentów.")
+            break
+
+        # Wybieramy 2 lub 3 losowych agentów do jednej rodziny
+        family_size = random.randint(2, 3)
+        family_agents = [all_agents_list.pop() for _ in range(min(family_size, len(all_agents_list)))]
+        family_color = family_colors[i % len(family_colors)]
+        # Dodajemy ich do wzajemnych list relatives
+        for agent in family_agents:
+            for relative in family_agents:
+                if agent != relative:
+                    agent.getRelatives().append(relative.getID())
+            agent.communicates = True  # Aktywacja komunikacji dla członków rodziny
+            agent.image.fill(family_color)
+
+        families_created += 1
+
+    print(f"Zainicjalizowano {families_created} rodzin.")
+    return agents
+
+
 # Main
 if __name__ == "__main__":
     global SCREEN, CLOCK, layout, all_sprites, all_agents, all_walls, all_fires, all_smokes, exits, soundAlarm
-
+    
     soundAlarm = False
     fps = 30
     pygame.init()
@@ -280,9 +416,9 @@ if __name__ == "__main__":
     fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Format wideo (AVI)
     out = cv2.VideoWriter('simulationRelatives3.avi', fourcc, FPS, (WIDTH, HEIGHT+40))
 
-
+    config = load_config("config.yaml")
     # Create agents
-    layout = getLayout(None)
+    layout = getLayout()
     exits  = getExitsPos(layout)
 
     all_sprites = pygame.sprite.Group()
@@ -293,45 +429,18 @@ if __name__ == "__main__":
     all_alarms  = pygame.sprite.Group()
     createWalls()
     createAlarm()
-    #fire_alarm = pygame.mixer.Sound("FireAlarm.wav")
-    from collections import Counter
-
-    STRATEGY = ['nearest_exit', 'safest_exit', 'least_crowded_exit']
-    status_list = []  
-    risk_levels = []
-    colors = {'nearest_exit' : DARKRED	, 'safest_exit': PURPLE, 'least_crowded_exit': GREEN}
-    for i in range(NUM_AGENTS):
-        # strategy = random.choice(STRATEGY)
-        strategy = STRATEGY[i % 3]
-        status_list.append(strategy)
-        # player = Agent(i+1, deepcopy(layout), exits, HEALTH_POINTS, 1, True, strategy=strategy, color=colors[strategy])
-        player = Agent(identifier=i+1,layout=deepcopy(layout),exits=exits,health=HEALTH_POINTS,risk=random.uniform(0, 1),communicates=True,strategy=strategy,color=colors[strategy])
-        all_sprites.add(player)
-        all_agents.add(player)
-        risk_levels.append(player.risk)
+  
+    num_agents = config.get("simulation", {}).get("num_agents", NUM_AGENTS) if config else NUM_AGENTS
+    all_agents = initialize_agents(config, num_agents, layout=layout, exits=exits)   
+    all_agents_list = list(all_agents)
+    all_agents = initialize_families(config, all_agents) 
+  
         
-    all_agents_list = list(all_agents) 
-    colors = [DARKPURPLE, ROYALPURPLE, LAVENDER]
-    for i in range(2):
-        agent_a = random.choice(all_agents_list)
-        agent_b = random.choice([a for a in all_agents_list if a != agent_a])  # Unikamy relacji do samego siebie
-        agent_a.getRelatives().append(agent_b.getID())
-        agent_b.getRelatives().append(agent_a.getID())
-        agent_a.communicates = True
-        agent_b.communicates = True
-        agent_a.image.fill(colors[i])
-        agent_b.image.fill(colors[i])
-        if agent_a.getDangerState() or agent_b.getDangerState():				
-                agent_a.danger = agent_b.danger = True
-        # print(f"A = {agent_a.getID()} {agent_a.getRelatives()}, B = {agent_b.getID()} {agent_b.getRelatives()}")
     
     agents_saved = []
     agents_dead = []
-    status_counts = Counter(status_list)
     stats_file_path = 'simulation_stats.csv'
-# Wypisz ile agentów ma każdy status
-    for status, count in status_counts.items():
-        print(f"Status '{status}': {count} agentów")
+
     createFires()
     
     pause = False
@@ -360,7 +469,7 @@ if __name__ == "__main__":
             pygame.mixer.unpause()
 
 
-        if len(agents_saved) + len(agents_dead) == NUM_AGENTS:
+        if len(agents_saved) + len(agents_dead) == len(all_agents_list):
             gather_agent_data(all_agents_list)
             break
 
@@ -390,10 +499,11 @@ if __name__ == "__main__":
             all_agents.update(all_agents)
             draw()
 
-            frame = pygame.surfarray.array3d(SCREEN)  # Pobranie obrazu jako tablicy
-            frame = np.rot90(frame)  # Obrót obrazu
-            frame = np.flip(frame, axis=1)  # Lustrzane odbicie
-            out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Zapis klatki do wideo
+            # USE TO SAVE THE VIDEO FROM EVACUATION 
+            # frame = pygame.surfarray.array3d(SCREEN)  # Pobranie obrazu jako tablicy
+            # frame = np.rot90(frame)  # Obrót obrazu
+            # frame = np.flip(frame, axis=1)  # Lustrzane odbicie
+            # out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Zapis klatki do wideo
             # 
         
         i+=1
@@ -402,42 +512,3 @@ if __name__ == "__main__":
     time.sleep(2)
     # out.release()
     pygame.quit()
-
-    # for agent in all_agents:
-    #     if not agent.isDead():
-    #         agents_saved.append(agent)
-    #     else:
-    #         agents_dead.append(agent)
-
-    # # Zliczanie, ilu przeżyło i zginęło
-    # print(f"Liczba agentów: {NUM_AGENTS}")
-    # print(f"Przeżyło: {len(agents_saved)}")
-    # print(f"Zginęło: {len(agents_dead)}")
-    
-    
-    # agents_strategy_count = Counter([agent.strategy for agent in all_agents_list])
-    # print(f"Statystyki strategii:")
-    # for strategy, count in agents_strategy_count.items():
-    #     print(f"Strategia {strategy}: {count} agentów")
-        
-    # low_risk = [agent for agent in all_agents_list if agent.risk < 0.3]
-    # medium_risk = [agent for agent in all_agents_list if 0.3 <= agent.risk < 0.7]
-    # high_risk = [agent for agent in all_agents_list if agent.risk >= 0.7]
-    
-    # print(f"Agenci z niskim ryzykiem: {len(low_risk)}")
-    # print(f"Agenci ze średnim ryzykiem: {len(medium_risk)}")
-    # print(f"Agenci z wysokim ryzykiem: {len(high_risk)}")
-    # summary = {
-    #     "total_agents": NUM_AGENTS,
-    #     "agents_saved": len(agents_saved),
-    #     "agents_dead": len(agents_dead),
-    #     "agents_by_strategy": dict(agents_strategy_count),
-    #     "agents_by_risk": {
-    #         "low": len(low_risk),
-    #         "medium": len(medium_risk),
-    #         "high": len(high_risk)
-    #     }
-    # }
-    # print("Podsumowanie symulacji:")
-    # for key, value in summary.items():
-    #     print(f"{key}: {value}")
