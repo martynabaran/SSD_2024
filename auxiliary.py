@@ -19,7 +19,7 @@ def isWall(layout, i, j):
 	return inLayout(layout, i, j ) and layout[i][j] == 'W'
 
 def isExit(layout, i, j):
-	return inLayout(layout, i, j ) and layout[i][j] == 'E'
+	return inLayout(layout, i, j) and layout[i][j] == 'E'
 
 def isAlarm(layout, i, j):
 	return inLayout(layout, i, j ) and layout[i][j] == 'A'

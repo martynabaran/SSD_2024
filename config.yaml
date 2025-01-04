@@ -1,6 +1,6 @@
 simulation:
   # Definiowanie liczby agentów w symulacji
-  num_agents: 50
+  num_agents: 30
   
   # Wiek agentów (opcjonalne: można określić zakres, w przeciwnym razie zostanie wybrany losowy)
   age_range:
@@ -9,12 +9,12 @@ simulation:
   
   # Definiowanie strategii agentów (opcjonalne: można wybrać, jakie strategie mają być dostępne)
   strategies:
-    nearest_exit: 20
-    safest_exit: 20
+    nearest_exit: 10
+    safest_exit: 10
     least_crowded_exit: 10
   
   # Liczba rodzin w pomieszczeniu (opcjonalne)
-  num_families: 5
+  num_families: 8
   
   # Określenie liczby wyjść w symulacji (opcjonalne)
   exits:

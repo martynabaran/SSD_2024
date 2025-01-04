@@ -96,16 +96,18 @@ class Agent(pygame.sprite.Sprite):
         
     def move(self, dx=0, dy=0):
         """Moves the agent based on calculated deltas."""
-        self.partial_x += dx * self.speed
-        self.partial_y += dy * self.speed
-        move_x, move_y = int(self.partial_x), int(self.partial_y)
+        # self.partial_x += dx * self.speed
+        # self.partial_y += dy * self.speed
+        # move_x, move_y = int(self.partial_x), int(self.partial_y)
        
-        if abs(move_x) > 0 or abs(move_y) > 0:
-            self.partial_x -= move_x
-            self.partial_y -= move_y
-            self.x += move_x
-            self.y += move_y
-        
+        # if abs(move_x) > 0 or abs(move_y) > 0:
+        #     self.partial_x -= move_x
+        #     self.partial_y -= move_y
+        #     self.x = max(self.x + dx, self.x + move_x)
+        #     self.y = max(self.x + dy, self.x + move_y)
+        self.x += dx
+        self.y += dy
+
 
     def die(self):
         self.dead = True
@@ -157,19 +159,20 @@ class Agent(pygame.sprite.Sprite):
         prob = [1/self.id, 1-(1/self.id)]
         if (choices(move, prob)):
             i = random.randrange(0, 4)
-            self.partial_x += row[i] * self.speed
-            self.partial_y += col[i] * self.speed
-            move_x = int(self.partial_x)
-            move_y = int(self.partial_y)
-            if abs(move_x) > 0 or abs(move_y) > 0:
-                self.partial_x -= move_x
-                self.partial_y -= move_y
-                x = self.x + move_x
-                y = self.y + move_y
-
-                if inLayout(self.layout, x,y) and (not isWall(self.layout,x,y) and not isFire(self.layout,x,y) and not isSmoke(self.layout,x,y) and not isExit(self.layout,x,y) and not isAlarm(self.layout,x,y)):
+            # self.partial_x += row[i] * self.speed
+            # self.partial_y += col[i] * self.speed
+            # move_x = int(self.partial_x)
+            # move_y = int(self.partial_y)
+            # if abs(move_x) > 0 or abs(move_y) > 0:
+            #     self.partial_x -= move_x
+            #     self.partial_y -= move_y
+            #     x = self.x + move_x
+            #     y = self.y + move_y
+            x = self.x + row[i]
+            y = self.y + col[i]
+            if not isWall(self.layout,x,y) and not isFire(self.layout,x,y) and not isSmoke(self.layout,x,y) and not isExit(self.layout,x,y) and not isAlarm(self.layout,x,y):
                         return [[x, y]]
-                else:
+            else:
                     return [[self.x, self.y]]
                 
         return [[self.x, self.y]]
@@ -195,7 +198,7 @@ class Agent(pygame.sprite.Sprite):
             relative = self.check_for_relatives_in_range(all_agents, grid_size=10)
             if relative:
                 self.rescue_counter += 1
-                self.synchronize_exit(relative)
+                self.synchronize_exit(all_agents,relative)
             else:
                 self.rescue_relatives = False
                 self.reconsider = True
@@ -234,15 +237,16 @@ class Agent(pygame.sprite.Sprite):
         return [[self.x, self.y]]  # No options left, staying in the same position
 
 
-    def synchronize_exit(self, relative):
+    def synchronize_exit(self, all_agents, relative):
         # Calculate common path to exit
         exit_path = self.Dijkstra()
 
         # Set same path for both agents
         self.plan = exit_path
-        relative.plan = exit_path
+        relative.plan = relative.DijkstraToTarget(all_agents, target=exit_path[-1])
         relative.danger = True
-        
+        print(f"AGENT: pozycja - ({self.x}, {self.y}), plan: {self.plan}")
+        print(f"RELATIVE: pozycja ({relative.x}, {relative.y}) : {relative.plan}")
         self.reconsider = False
         relative.reconsider = False
 
@@ -269,6 +273,7 @@ class Agent(pygame.sprite.Sprite):
         parents = {}
         distance = {}
         enqueued = {}
+        my_dest = []
 
         for i in range(len(self.layout)):
             visit = []
@@ -282,8 +287,14 @@ class Agent(pygame.sprite.Sprite):
         heapq.heappush(queue, [0, source[0], source[1]])
         distance[tuple(source)] = 0
         enqueued[tuple(source)] = True
-        if 0 <= source[0] < len(self.layout) and 0 <= source[1] < len(self.layout[0]):
+        # if 0 <= source[0] < len(self.layout) and 0 <= source[1] < len(self.layout[0]):
+        # visited[source[0]][source[1]] = 1
+        if 0 <= source[0] < len(visited) and 0 <= source[1] < len(visited[0]):
             visited[source[0]][source[1]] = 1
+        else:
+            print(f"[ERROR] Source out of bounds: {source}, len on visited: {len(visited)}, {len(visited[0])}")
+            print(f"layout bounds: {len(self.layout)}, {len(self.layout[0])}")
+            return []
 
         while queue:
             cur = heapq.heappop(queue)
@@ -295,7 +306,9 @@ class Agent(pygame.sprite.Sprite):
             enqueued[parent] = False
 
             if list(parent) in dests:
-                return [list(parent)]
+                my_dest = list(parent)
+                break
+                # return [list(parent)]
 
             combined = list(zip(row, col))
             random.shuffle(combined)
@@ -323,8 +336,18 @@ class Agent(pygame.sprite.Sprite):
                         parents[(x, y)] = list(parent)
                         heapq.heappush(queue, [alternative, x, y])
                         enqueued[(x, y)] = True
-
-        return self.panic()  # No path found, triggering panic
+        if not my_dest:
+            # print(f"[DEBUG] Agent {self.id}: No path to exit found, triggering panic")
+            return self.panic()
+        path = []
+        at = my_dest
+        while at != source:
+            path.append(at)
+            at = parents[tuple(at)]
+        path.reverse()
+        # print(f"[DEBUG] Agent {self.id}: Path found: {path}")
+        return path
+        # return self.panic()  # No path found, triggering panic
     
 
     def calculate_crowdedness_and_danger(self, exits, agents, radius):
@@ -484,8 +507,8 @@ class Agent(pygame.sprite.Sprite):
         heapq.heapify(queue)
         distance[tuple(source)] = 0
         enqueued[tuple(source)] = True
-        if 0 <= source[0] < len(self.layout) and 0 <= source[1] < len(self.layout[0]):
-            visited[source[0]][source[1]] = 1
+        # if 0 <= source[0] < len(self.layout) and 0 <= source[1] < len(self.layout[0]):
+        visited[source[0]][source[1]] = 1
 
 
         while len(queue) > 0:

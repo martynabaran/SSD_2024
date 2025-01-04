@@ -22,7 +22,7 @@ def drawGrid():
 def updateHealth(agent,i):
     pos = agent.getPosition()
     identifier  = agent.getID()
-    if ((isExit(layout,pos[0], pos[1]) or not inLayout(layout, pos[0], pos[1])) and identifier not in agents_saved):
+    if (isExit(layout,pos[0], pos[1]) and identifier not in agents_saved):
         agents_saved.append(identifier)
         agent.saved_at = i
         all_sprites.remove(agent)
@@ -294,7 +294,7 @@ def initialize_agents(config, num_agents, layout=None, exits=None):
     for strategy, count in strategy_counts.items():
         strategy_pool.extend([strategy] * count)
 
-    colors = {'nearest_exit': "DARKRED", 'safest_exit': "PURPLE", 'least_crowded_exit': "GREEN"}
+    colors = {'nearest_exit': "DARKRED", 'safest_exit': "PURPLE", 'least_crowded_exit': (112, 125, 26)}
     
     for i in range(num_agents):
         strategy = strategy_pool.pop(0) if strategy_pool else random.choice(list(colors.keys()))
@@ -403,7 +403,7 @@ def initialize_families(config, agents):
 
 # Main
 if __name__ == "__main__":
-    global SCREEN, CLOCK, layout, all_sprites, all_agents, all_walls, all_fires, all_smokes, exits, soundAlarm
+    global SCREEN, CLOCK, layout, all_sprites, all_agents, all_walls, all_fires, all_smokes, exits, soundAlarm, agents_saved, agents_dead
     
     soundAlarm = False
     fps = 30
@@ -451,6 +451,7 @@ if __name__ == "__main__":
 
     # Main cycle
     i = 0
+    print(f"wielkosc layoutu: ({len(layout)}, {len(layout[0])})")
     while run:
         
         CLOCK.tick(FPS)
