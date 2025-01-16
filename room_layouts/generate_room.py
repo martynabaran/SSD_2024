@@ -22,12 +22,12 @@ def generate_room_layout(filename="room_layout.txt"):
         ["W"] * 50,
     ]
 
-    # Zapis do pliku
+   
     with open(filename, "w") as file:
         for row in room_layout:
             file.write(" ".join(row) + "\n")
 
     print(f"Układ pomieszczenia zapisano do pliku {filename}.")
 
-# Wywołanie funkcji
+
 generate_room_layout()
